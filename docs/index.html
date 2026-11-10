@@ -7,9 +7,9 @@
   <meta name="description" content="Calendari de triatló. Tria un dia i apunta-t’hi.">
   <title>Tri Relay · Calendari de triatló</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="styles.css?v=11">
+  <link rel="stylesheet" href="styles.css?v=12">
   <script src="config.js?v=9" defer></script>
-  <script src="app.js?v=11" type="module"></script>
+  <script src="app.js?v=12" type="module"></script>
 </head>
 <body>
   <main class="shell">
@@ -38,6 +38,7 @@
           <h3>Nou esdeveniment</h3><p id="create-date" class="muted"></p>
           <label for="event-name">Nom de l’esdeveniment</label><input id="event-name" maxlength="100" placeholder="P. ex. Triatló de la costa" required autocomplete="off">
           <label for="event-distance">Distància / modalitat <span class="optional">(opcional)</span></label><input id="event-distance" maxlength="60" placeholder="P. ex. Olímpica, Half, 10 km…" autocomplete="off">
+          <p id="create-progress" class="form-progress" role="status" aria-live="polite" hidden><i class="loading-spinner small" aria-hidden="true"></i><span id="create-progress-text"></span></p>
           <div class="form-actions"><button type="button" id="cancel-create" class="button quiet">Cancel·la</button><button class="button primary" type="submit">Crea l’esdeveniment ↗</button></div>
         </form>
       </section>
@@ -45,6 +46,15 @@
     </div>
   </main>
   <dialog id="day-dialog" class="day-dialog" aria-labelledby="day-label"><div id="day-dialog-slot"></div></dialog>
+  <dialog id="similar-dialog" aria-labelledby="similar-title">
+    <h2 id="similar-title">Ja hi ha un esdeveniment semblant</h2>
+    <p class="muted">Comprova el nom i la modalitat abans de crear-ne un de nou.</p>
+    <p id="similar-draft" class="similar-draft"></p>
+    <div id="similar-events"></div>
+    <p id="similar-exact-note" class="muted" hidden>El mateix nom i modalitat ja existeixen. Per crear-ne un altre, canvia el nom o la modalitat.</p>
+    <button id="create-anyway" class="button secondary full-width" type="button">És un altre: crea’l igualment</button>
+    <button id="edit-draft" class="button quiet full-width" type="button">Torna a editar</button>
+  </dialog>
   <dialog id="event-dialog" aria-labelledby="event-title">
     <div class="dialog-heading"><p id="event-date" class="eyebrow"></p><button id="close-dialog" class="icon-button" aria-label="Tanca l’esdeveniment">×</button></div>
     <div class="event-title-line"><h2 id="event-title"></h2><span id="event-distance-label" class="event-tag" hidden></span></div><p id="participant-count" class="muted"></p><ul id="participants" class="participants"></ul>

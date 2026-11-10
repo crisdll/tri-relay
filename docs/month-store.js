@@ -79,6 +79,13 @@ export class MonthStore {
     for (const key of keys) if (!this.isFresh(key)) this.refresh(key).catch(() => {});
   }
 
+  replace(key, events) {
+    if (!validEvents(key, events)) throw new Error('Resposta del calendari no vàlida.');
+    this.revisions.set(key, (this.revisions.get(key) || 0) + 1);
+    this.cache.set(key, { events, fetchedAt: this.now() });
+    this.persist();
+  }
+
   upsert(event) {
     const key = event.date.slice(0, 7);
     const old = this.peek(key);

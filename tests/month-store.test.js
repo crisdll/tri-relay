@@ -100,3 +100,12 @@ test('prioritza el mes seleccionat davant les precàrregues en espera', async ()
   requests.get('2027-03').resolve([]); await three; await tick();
   requests.get('2027-02').resolve([]); await two;
 });
+
+test('la comprovació fresca abans de crear preval sobre una precàrrega antiga', async () => {
+  const stale = deferred();
+  const store = new MonthStore({ fetchMonth: () => stale.promise });
+  const reading = store.refresh('2027-01'); await tick();
+  store.replace('2027-01', [event('created-by-someone-else', '2027-01')]);
+  stale.resolve([]); await reading;
+  assert.equal(store.peek('2027-01').events[0].id, 'created-by-someone-else');
+});

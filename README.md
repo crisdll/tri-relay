@@ -10,6 +10,7 @@ Calendario sencillo para el equipo de triatlón. Sin cuentas para los participan
 - Al seleccionar un día aparecen sus eventos. Se puede abrir uno para ver la lista y apuntarse, o crear otro en esa fecha.
 - Nombre del evento, día, distancia/modalidad opcional y nombres de personas.
 - Cada modalidad tiene su propia lista: por ejemplo, Challenge Barcelona · Olímpica y Challenge Barcelona · Half. Repetir el mismo evento, día y modalidad abre el existente. Repetir una inscripción no duplica el nombre; dos personas con el mismo nombre deben añadir su apellido.
+- Antes de crear se consulta Google de nuevo, con el indicador «Comprovant si ja existeix…». Si hay nombres similares el mismo día, se muestran sus modalidades para elegir el existente, confirmar que es otro evento o volver a editar. Una coincidencia exacta de nombre/modalidad no se puede duplicar.
 - Los datos reales se guardan en una hoja privada de Google, compartidos entre todos los dispositivos. No se guardan en el repositorio público.
 
 ## Probar aquí

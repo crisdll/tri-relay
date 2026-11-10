@@ -1,5 +1,6 @@
 import { dateKey, monthDays, normalizeName } from './calendar.js';
-import { MonthStore } from './month-store.js';
+import { MonthStore } from './month-store.js?v=12';
+import { findSimilarEvents } from './event-matching.js';
 const $ = id => document.getElementById(id);
 const config = window.TRI_CONFIG || {};
 const demo = new URLSearchParams(location.search).get('demo') === '1';
@@ -8,6 +9,7 @@ const mobileLayout = window.matchMedia('(max-width: 740px)');
 let month = new Date(today.getFullYear(), today.getMonth(), 1, 12);
 let selected = null, events = [], activeId = null, busy = false, loaded = false, requestNumber = 0, toastTimer;
 let loadError = null, refreshPending = false, lastResume = 0;
+let pendingCreation = null;
 const monthFormat = new Intl.DateTimeFormat('ca-ES', { month: 'long', year: 'numeric' });
 const dayFormat = new Intl.DateTimeFormat('ca-ES', { day: 'numeric', month: 'long' });
 const fullFormat = new Intl.DateTimeFormat('ca-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -115,7 +117,7 @@ function renderDay() {
 }
 function setBusy(value) {
   busy = value;
-  document.querySelectorAll('#create-form button, #join-form button, #new-event').forEach(button => { button.disabled = value; });
+  document.querySelectorAll('#create-form button, #create-form input, #join-form button, #new-event').forEach(button => { button.disabled = value; });
   if (!value && refreshPending) { refreshPending = false; refreshOnReturn(); }
 }
 function drawMonth(preserveEditor) {
@@ -203,12 +205,55 @@ $('new-event').addEventListener('click', () => {
   $('create-date').textContent = fullFormat.format(parseDate(selected)); $('create-form').hidden = false; $('new-event').hidden = true; $('event-name').value = ''; $('event-distance').value = ''; $('event-name').focus();
 });
 $('cancel-create').addEventListener('click', renderDay);
+function createProgress(message = '') {
+  $('create-progress-text').textContent = message;
+  $('create-progress').hidden = !message;
+}
+function showSimilarEvents(draft, matches) {
+  pendingCreation = draft;
+  $('similar-draft').textContent = `Vols crear: ${draft.name}${draft.distance ? ` · ${draft.distance}` : ''}`;
+  $('similar-events').replaceChildren();
+  $('similar-exact-note').hidden = !matches.some(match => match.exact);
+  $('create-anyway').hidden = matches.some(match => match.exact);
+  for (const { event } of matches) {
+    const option = element('button', 'event-card similar-option'); option.type = 'button';
+    const title = element('div', 'event-title-line'); title.append(element('h3', '', event.name));
+    if (event.distance) title.append(element('span', 'event-tag', event.distance));
+    option.append(title, element('p', 'muted', `${event.participants.length} ${event.participants.length === 1 ? 'persona apuntada' : 'persones apuntades'}`), element('span', 'similar-action', 'És aquest: vull apuntar-m’hi ↗'));
+    option.addEventListener('click', () => { $('similar-dialog').close(); renderDay(); openEvent(event.id); });
+    $('similar-events').append(option);
+  }
+  $('similar-dialog').showModal();
+}
+async function saveNewEvent(draft) {
+  setBusy(true); createProgress('Creant l’esdeveniment…');
+  try {
+    const result = await api('create', draft); upsert(result.event); renderCalendar(); renderDay(); openEvent(result.event.id);
+    notify(result.existing ? 'Aquest esdeveniment i modalitat ja existeixen. Pots apuntar-t’hi aquí.' : 'Esdeveniment creat. Ja pots apuntar-t’hi.');
+  } catch (error) { notify(error.message, true); }
+  finally { createProgress(); setBusy(false); }
+}
+$('edit-draft').addEventListener('click', () => { $('similar-dialog').close(); $('event-name').focus(); });
+$('similar-dialog').addEventListener('close', () => { pendingCreation = null; });
+$('create-anyway').addEventListener('click', () => {
+  if (busy || !pendingCreation) return;
+  const draft = pendingCreation; pendingCreation = null; $('similar-dialog').close(); saveNewEvent(draft);
+});
 $('create-form').addEventListener('submit', async event => {
   event.preventDefault(); if (busy || !selected || !loaded) return;
   const name = $('event-name').value.trim(); if (!name) { $('event-name').setCustomValidity('Escriu el nom de l’esdeveniment.'); $('event-name').reportValidity(); return; }
-  setBusy(true);
-  try { const result = await api('create', { date: selected, name, distance: $('event-distance').value.trim() }); upsert(result.event); renderCalendar(); renderDay(); openEvent(result.event.id); notify(result.existing ? 'Aquest esdeveniment i modalitat ja existeixen. Pots apuntar-t’hi aquí.' : 'Esdeveniment creat. Ja pots apuntar-t’hi.'); }
-  catch (error) { notify(error.message, true); } finally { setBusy(false); }
+  const draft = { date: selected, name, distance: $('event-distance').value.trim() };
+  setBusy(true); createProgress('Comprovant si ja existeix…');
+  let shouldCreate = false;
+  try {
+    // Always consult Google at submission time, even if this month is cached.
+    const latest = await api('list', { month: draft.date.slice(0, 7) });
+    monthStore.replace(draft.date.slice(0, 7), latest.events); events = latest.events; renderCalendar();
+    const matches = findSimilarEvents(latest.events, draft);
+    if (matches.length) showSimilarEvents(draft, matches); else shouldCreate = true;
+  } catch (error) { notify(error.message, true); }
+  finally { createProgress(); setBusy(false); }
+  if (shouldCreate) await saveNewEvent(draft);
 });
 $('event-name').addEventListener('input', () => $('event-name').setCustomValidity(''));
 $('person-name').addEventListener('input', () => $('person-name').setCustomValidity(''));

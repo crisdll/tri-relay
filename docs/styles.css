@@ -33,4 +33,9 @@ body:has(dialog[open]){overflow:hidden}
 .calendar-loading{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;background:var(--paper);border-radius:12px;color:var(--muted);font-size:12px}
 @keyframes calendar-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.loading-spinner{animation:none}}
+.form-progress{display:flex;align-items:center;gap:8px;color:var(--accent-text);font-size:12px;margin:16px 0 0}
+.similar-draft{padding:12px;border-radius:9px;background:var(--soft);font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.similar-option .event-tag{margin:0;font-size:11px;letter-spacing:0}
+.similar-action{display:block;font-size:12px;font-weight:700;color:var(--accent-text);margin-top:12px}
+#similar-title{font-size:21px;margin-bottom:12px}
 @media(max-width:740px){.header-sports{font-size:8px;letter-spacing:1px}.brand{font-size:17px;gap:7px}.brand-mark{width:32px;height:32px}}
