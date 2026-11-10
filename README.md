@@ -4,9 +4,11 @@ Calendario sencillo para el equipo de triatlón. Sin cuentas para los participan
 
 ## Qué hace
 
+- Dos pestañas: **Calendari** y **Llista**, conectadas a los mismos datos. La lista muestra doce meses por defecto, con controles para ir a los doce anteriores o siguientes, y agrupa las modalidades y sus participantes debajo del nombre y la fecha del evento.
+- En la lista se puede escribir el nombre directamente en la modalidad correspondiente. Para crear desde la lista, «Nou esdeveniment» pide primero la fecha y después abre el formulario de nombre y modalidad, conservando la comprobación de posibles duplicados.
 - Calendario mensual de lunes a domingo con bolitas en las fechas con eventos.
 - En móvil, tocar un día abre directamente una ventana con sus eventos y un botón para volver al calendario; no hay que buscar los planes debajo de la página.
-- Para crear un evento hay que seleccionar antes su día. No hay un formulario con otra fecha.
+- Para crear un evento desde el calendario hay que seleccionar antes su día. Desde la lista, el primer paso es elegir la fecha.
 - Al seleccionar un día aparecen sus eventos. Se puede abrir uno para ver la lista y apuntarse, o crear otro en esa fecha.
 - Nombre del evento, día, distancia/modalidad opcional y nombres de personas.
 - Cada modalidad tiene su propia lista: por ejemplo, Challenge Barcelona · Olímpica y Challenge Barcelona · Half. Repetir el mismo evento, día y modalidad abre el existente. Repetir una inscripción no duplica el nombre; dos personas con el mismo nombre deben añadir su apellido.

@@ -7,9 +7,9 @@
   <meta name="description" content="Calendari de triatló. Tria un dia i apunta-t’hi.">
   <title>Tri Relay · Calendari de triatló</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="styles.css?v=14">
   <script src="config.js?v=9" defer></script>
-  <script src="app.js?v=12" type="module"></script>
+  <script src="app.js?v=14" type="module"></script>
 </head>
 <body>
   <main class="shell">
@@ -21,7 +21,8 @@
       <h1>On repartirem<br><span>tonyina</span></h1>
     </section>
     <aside id="notice" class="notice" hidden></aside>
-    <div class="workspace">
+    <div class="view-tabs" role="tablist" aria-label="Vista dels esdeveniments"><button id="calendar-tab" type="button" role="tab" aria-selected="true" aria-controls="calendar-view">Calendari</button><button id="list-tab" type="button" role="tab" aria-selected="false" aria-controls="list-view" tabindex="-1">Llista</button></div>
+    <div id="calendar-view" class="workspace" role="tabpanel" aria-labelledby="calendar-tab">
       <section class="calendar-card" aria-label="Calendari d’esdeveniments">
         <div class="calendar-heading"><div><p class="eyebrow">CALENDARI <span id="sync-status" class="sync-status" role="status" aria-live="polite"><i id="sync-spinner" class="loading-spinner small" aria-hidden="true"></i><span id="sync-label">Carregant…</span></span></p><h2 id="month-label"></h2></div><div class="month-controls"><button id="previous" class="icon-button" aria-label="Mes anterior">‹</button><button id="next" class="icon-button" aria-label="Mes següent">›</button></div></div>
         <div class="weekdays" aria-hidden="true"><span>dl.</span><span>dt.</span><span>dc.</span><span>dj.</span><span>dv.</span><span>ds.</span><span>dg.</span></div>
@@ -44,7 +45,14 @@
       </section>
       </div>
     </div>
+    <section id="list-view" class="list-view" role="tabpanel" aria-labelledby="list-tab" hidden>
+      <div class="list-toolbar"><div><h2>Esdeveniments</h2><p id="list-period" class="muted"></p></div><button id="list-new-event" class="button primary" type="button">＋ Nou esdeveniment</button></div>
+      <div class="list-controls"><div class="month-controls"><button id="list-previous" class="icon-button" aria-label="Dotze mesos anteriors">‹</button><button id="list-next" class="icon-button" aria-label="Dotze mesos següents">›</button><button id="list-today" class="text-button">Avui ↗</button></div><span id="list-loading" class="form-progress" role="status" aria-live="polite" hidden><i class="loading-spinner small" aria-hidden="true"></i><span>Carregant la llista…</span></span></div>
+      <div id="list-error" class="notice" hidden><span>No hem pogut carregar tota la llista. </span><button id="list-retry" class="text-button" type="button">Torna-ho a provar</button></div>
+      <div id="event-list"></div>
+    </section>
   </main>
+  <dialog id="date-dialog" aria-labelledby="date-dialog-title"><h2 id="date-dialog-title">Quin dia és?</h2><form id="date-form"><label for="list-event-date">Data de l’esdeveniment</label><input id="list-event-date" type="date" min="2000-01-01" max="2100-12-31" required><div class="form-actions"><button id="cancel-date" class="button quiet" type="button">Cancel·la</button><button class="button primary" type="submit">Continua ↗</button></div></form></dialog>
   <dialog id="day-dialog" class="day-dialog" aria-labelledby="day-label"><div id="day-dialog-slot"></div></dialog>
   <dialog id="similar-dialog" aria-labelledby="similar-title">
     <h2 id="similar-title">Ja hi ha un esdeveniment semblant</h2>

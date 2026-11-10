@@ -38,4 +38,28 @@ body:has(dialog[open]){overflow:hidden}
 .similar-option .event-tag{margin:0;font-size:11px;letter-spacing:0}
 .similar-action{display:block;font-size:12px;font-weight:700;color:var(--accent-text);margin-top:12px}
 #similar-title{font-size:21px;margin-bottom:12px}
+.view-tabs{display:inline-flex;gap:4px;padding:4px;background:var(--paper);border:1px solid var(--line);border-radius:12px;margin:0 0 22px}
+.view-tabs button{border:0;border-radius:8px;min-height:40px;padding:10px 22px;font-size:13px;font-weight:700;color:var(--muted);background:transparent}
+.view-tabs button[aria-selected="true"]{background:var(--accent);color:#fff}
+.list-view{max-width:800px;margin:0 auto 40px}
+.list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+.list-toolbar h2{font-size:24px;margin-bottom:6px}
+.list-toolbar .muted{margin:0;font-size:12px}
+.list-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px;min-height:34px}
+.list-controls .form-progress{margin:0;font-size:11px}
+.list-event{padding:24px;background:var(--paper);border:1px solid var(--line);border-radius:16px;margin-bottom:16px}
+.list-date{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--accent-text);margin-bottom:8px}
+.list-event h3{font-size:19px;margin:0 0 18px;overflow-wrap:anywhere}
+.list-variant+.list-variant{border-top:1px solid var(--line);padding-top:20px;margin-top:20px}
+.list-distance{font-size:12px;letter-spacing:0;margin:0 0 10px}
+.list-names{padding-left:20px;margin:0 0 16px;font-size:14px;line-height:1.9;overflow-wrap:anywhere}
+.list-names li::marker{color:var(--muted)}
+.list-join-form{display:flex;gap:8px;align-items:center}
+.list-join-form input{flex:1;min-width:0;font-size:13px;padding:11px 12px}
+.list-join-form .button{flex-shrink:0;font-size:12px}
+.list-message{font-size:12px;line-height:1.6;color:var(--accent-text);margin:10px 0 0}
+.list-message:empty{display:none}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.day-dialog .close-day{display:inline-flex;margin:0 0 20px;min-height:40px;align-items:center;padding:0 4px}
+@media(max-width:740px){.view-tabs{display:flex}.view-tabs button{flex:1}.list-toolbar{align-items:flex-start}.list-toolbar h2{font-size:20px}.list-toolbar .button{font-size:11px;padding:10px;min-height:40px}.list-event{padding:20px}.list-event h3{font-size:18px}.list-controls{align-items:flex-start}.list-controls .form-progress{max-width:130px;line-height:1.5}.list-join-form{gap:6px}.list-join-form .button{font-size:11px;padding:10px}.list-view{margin-bottom:24px}}
 @media(max-width:740px){.header-sports{font-size:8px;letter-spacing:1px}.brand{font-size:17px;gap:7px}.brand-mark{width:32px;height:32px}}

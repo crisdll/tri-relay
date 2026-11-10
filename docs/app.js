@@ -1,6 +1,7 @@
 import { dateKey, monthDays, normalizeName } from './calendar.js';
 import { MonthStore } from './month-store.js?v=12';
 import { findSimilarEvents } from './event-matching.js';
+import { listMonthKeys, groupListEvents, validListDate } from './event-list.js';
 const $ = id => document.getElementById(id);
 const config = window.TRI_CONFIG || {};
 const demo = new URLSearchParams(location.search).get('demo') === '1';
@@ -10,6 +11,9 @@ let month = new Date(today.getFullYear(), today.getMonth(), 1, 12);
 let selected = null, events = [], activeId = null, busy = false, loaded = false, requestNumber = 0, toastTimer;
 let loadError = null, refreshPending = false, lastResume = 0;
 let pendingCreation = null;
+let currentView = 'calendar', listStart = new Date(today.getFullYear(), today.getMonth(), 1, 12);
+let listLoading = false, listGeneration = 0, listRangeLoading = '', listPromise = null;
+const listDrafts = new Map(), listMessages = new Map(), listFailures = new Set();
 const monthFormat = new Intl.DateTimeFormat('ca-ES', { month: 'long', year: 'numeric' });
 const dayFormat = new Intl.DateTimeFormat('ca-ES', { day: 'numeric', month: 'long' });
 const fullFormat = new Intl.DateTimeFormat('ca-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -90,10 +94,99 @@ function renderCalendar() {
 function empty(title, copy) {
   const wrapper = element('div', 'empty-state'); wrapper.append(element('span', 'empty-icon', '↗')); if (title) wrapper.append(element('h3', '', title)); wrapper.append(element('p', '', copy)); return wrapper;
 }
+function listEvents() { return listMonthKeys(listStart).flatMap(key => monthStore.peek(key)?.events || []); }
+function eventById(id) { return events.find(event => event.id === id) || listEvents().find(event => event.id === id); }
+function renderList() {
+  const keys = listMonthKeys(listStart);
+  $('list-period').textContent = `${monthFormat.format(parseDate(`${keys[0]}-01`))} — ${monthFormat.format(parseDate(`${keys.at(-1)}-01`))}`;
+  $('list-loading').hidden = !listLoading;
+  $('list-error').hidden = listFailures.size === 0;
+  const focus = document.activeElement;
+  const focusedId = focus?.id?.startsWith('list-name-') ? focus.id : null;
+  const selection = focusedId ? [focus.selectionStart, focus.selectionEnd] : null;
+  const container = $('event-list'); container.replaceChildren();
+  const groups = groupListEvents(listEvents());
+  if (!groups.length && !listLoading && !listFailures.size) container.append(empty('Cap esdeveniment', 'Pots afegir-ne un amb «Nou esdeveniment».'));
+  for (const group of groups) {
+    const article = element('article', 'list-event');
+    article.append(element('p', 'list-date', new Intl.DateTimeFormat('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(parseDate(group.date))), element('h3', '', group.name));
+    for (const event of group.variants) {
+      const section = element('section', 'list-variant');
+      section.setAttribute('aria-label', `${group.name}${event.distance ? ` · ${event.distance}` : ''}`);
+      if (event.distance) section.append(element('h4', 'event-tag list-distance', event.distance));
+      const names = element('ul', 'list-names');
+      for (const person of event.participants) names.append(element('li', '', person.name));
+      if (event.participants.length) section.append(names); else section.append(element('p', 'muted', 'Encara no hi ha ningú apuntat.'));
+      const form = element('form', 'list-join-form');
+      const label = element('label', 'visually-hidden', `El teu nom a ${group.name}${event.distance ? ` · ${event.distance}` : ''}`);
+      label.htmlFor = `list-name-${event.id}`;
+      const input = element('input'); input.id = label.htmlFor; input.name = 'name'; input.required = true; input.maxLength = 60; input.autocomplete = 'name'; input.placeholder = 'El teu nom'; input.value = listDrafts.get(event.id) || ''; input.disabled = busy;
+      input.addEventListener('input', () => { input.setCustomValidity(''); listDrafts.set(event.id, input.value); listMessages.delete(event.id); message.textContent = ''; });
+      const button = element('button', 'button primary', 'M’hi apunto ↗'); button.type = 'submit'; button.disabled = busy;
+      const message = element('p', 'list-message', listMessages.get(event.id) || ''); message.id = `list-message-${event.id}`; message.setAttribute('role', 'status');
+      form.append(label, input, button); form.addEventListener('submit', submit => joinFromList(submit, event.id));
+      section.append(form, message); article.append(section);
+    }
+    container.append(article);
+  }
+  if (focusedId && $(focusedId)) { $(focusedId).focus({ preventScroll: true }); if (selection) $(focusedId).setSelectionRange(...selection); }
+}
+async function loadList({ force = false } = {}) {
+  if (!demo && !config.apiUrl) { renderList(); return; }
+  const keys = listMonthKeys(listStart), range = keys.join(',');
+  if (listLoading && listRangeLoading === range) return listPromise;
+  const generation = ++listGeneration; listRangeLoading = range; listLoading = true; listFailures.clear(); renderList();
+  listPromise = Promise.allSettled(keys.map(async key => {
+    try { if (force || !monthStore.isFresh(key)) await monthStore.refresh(key); }
+    catch (error) { if (generation === listGeneration) listFailures.add(key); }
+    if (generation === listGeneration && currentView === 'list') renderList();
+  })).then(() => {
+    if (generation !== listGeneration) return;
+    listLoading = false;
+    if (currentView === 'list') renderList();
+  });
+  return listPromise;
+}
+function switchView(view) {
+  if (busy) return;
+  currentView = view;
+  for (const value of ['calendar', 'list']) {
+    $(`${value}-view`).hidden = value !== view;
+    $(`${value}-tab`).setAttribute('aria-selected', String(value === view));
+    $(`${value}-tab`).tabIndex = value === view ? 0 : -1;
+  }
+  if (view === 'list') loadList(); else loadMonth({ preserveEditor: true });
+}
+$('calendar-tab').addEventListener('click', () => switchView('calendar'));
+$('list-tab').addEventListener('click', () => switchView('list'));
+for (const id of ['calendar-tab', 'list-tab']) $(id).addEventListener('keydown', event => {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  event.preventDefault(); if (busy) return;
+  const view = currentView === 'calendar' ? 'list' : 'calendar'; switchView(view); $(`${view}-tab`).focus();
+});
+function changeListRange(offset) { if (busy) return; listStart = new Date(listStart.getFullYear(), listStart.getMonth() + offset, 1, 12); loadList(); }
+$('list-previous').addEventListener('click', () => changeListRange(-12));
+$('list-next').addEventListener('click', () => changeListRange(12));
+$('list-today').addEventListener('click', () => { if (busy) return; listStart = new Date(today.getFullYear(), today.getMonth(), 1, 12); loadList({ force: true }); });
+$('list-retry').addEventListener('click', () => loadList({ force: true }));
+$('list-new-event').addEventListener('click', () => { if (busy) return; $('list-event-date').value = ''; $('date-dialog').showModal(); });
+$('cancel-date').addEventListener('click', () => $('date-dialog').close());
+$('list-event-date').addEventListener('input', () => $('list-event-date').setCustomValidity(''));
+$('date-form').addEventListener('submit', async event => {
+  event.preventDefault(); if (busy) return;
+  const key = $('list-event-date').value;
+  if (!validListDate(key)) { $('list-event-date').setCustomValidity('Tria una data vàlida.'); $('list-event-date').reportValidity(); return; }
+  setBusy(true); selected = key; const date = parseDate(key); month = new Date(date.getFullYear(), date.getMonth(), 1, 12); $('date-dialog').close();
+  const reading = loadMonth();
+  if (!listMonthKeys(listStart).includes(key.slice(0, 7))) { listStart = new Date(month); loadList(); }
+  showDayPanel(true);
+  await reading;
+  setBusy(false); if (loaded) openCreateForm();
+});
 function renderDay() {
   $('day-label').textContent = selected ? dayFormat.format(parseDate(selected)) : 'Tria un dia';
   $('day-count').hidden = true; $('new-event').hidden = true; $('create-form').hidden = true;
-  const content = $('day-content'); content.replaceChildren();
+  const content = $('day-content'); content.hidden = false; content.replaceChildren();
   if (!selected) { content.append(empty('', 'Toca una data per veure o crear esdeveniments.')); return; }
   if (!demo && !config.apiUrl) { content.append(empty('Calendari pendent de connectar', 'Falta connectar el full. Pots provar la demo amb l’enllaç de dalt.')); return; }
   if (!loaded) {
@@ -117,13 +210,14 @@ function renderDay() {
 }
 function setBusy(value) {
   busy = value;
-  document.querySelectorAll('#create-form button, #create-form input, #join-form button, #new-event').forEach(button => { button.disabled = value; });
+  document.querySelectorAll('#create-form button, #create-form input, #join-form button, #new-event, #list-view button, #list-view input, [role="tab"]').forEach(button => { button.disabled = value; });
   if (!value && refreshPending) { refreshPending = false; refreshOnReturn(); }
 }
 function drawMonth(preserveEditor) {
   renderCalendar();
   if (!preserveEditor || $('create-form').hidden) renderDay();
   if ($('event-dialog').open) renderEvent();
+  if (currentView === 'list') renderList();
 }
 function warmNeighbors() {
   monthStore.prefetch([1, 2, -1].map(offset => dateKey(new Date(month.getFullYear(), month.getMonth() + offset, 1, 12)).slice(0, 7)));
@@ -164,26 +258,28 @@ function selectDay(key, outside) {
   showDayPanel();
   window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
 }
-function showDayPanel() {
-  if (!mobileLayout.matches) return;
+function showDayPanel(force = false) {
+  if (!mobileLayout.matches && !force) return;
+  $('close-day').textContent = currentView === 'list' ? '← Torna a la llista' : '← Torna al calendari';
   $('day-dialog-slot').append($('day-panel'));
   if (!$('day-dialog').open) $('day-dialog').showModal();
 }
 function restoreDesktopPanel() {
-  if (mobileLayout.matches) return;
+  if (mobileLayout.matches || (currentView === 'list' && $('day-dialog').open)) return;
   $('day-dialog').close();
   $('day-panel-home').append($('day-panel'));
 }
 mobileLayout.addEventListener('change', restoreDesktopPanel);
 $('close-day').addEventListener('click', () => { if (!busy) $('day-dialog').close(); });
 $('day-dialog').addEventListener('cancel', event => { if (busy) event.preventDefault(); });
+$('day-dialog').addEventListener('close', () => { if (!mobileLayout.matches) $('day-panel-home').append($('day-panel')); });
 function openEvent(id) {
   activeId = id; $('dialog-status').textContent = ''; renderEvent();
   try { $('person-name').value = localStorage.getItem('tri-relay-name') || ''; } catch { /* Name memory is optional. */ }
   if (!$('event-dialog').open) $('event-dialog').showModal();
 }
 function renderEvent() {
-  const event = events.find(item => item.id === activeId); if (!event) return;
+  const event = eventById(activeId); if (!event) return;
   $('event-title').textContent = event.name; $('event-date').textContent = fullFormat.format(parseDate(event.date));
   $('event-distance-label').textContent = event.distance || ''; $('event-distance-label').hidden = !event.distance;
   $('participant-count').textContent = `${event.participants.length} ${event.participants.length === 1 ? 'persona apuntada' : 'persones apuntades'}`;
@@ -200,10 +296,13 @@ $('previous').addEventListener('click', () => changeMonth(-1));
 $('next').addEventListener('click', () => changeMonth(1));
 function changeMonth(direction) { if (busy) return; month = new Date(month.getFullYear(), month.getMonth() + direction, 1, 12); selected = null; loadMonth(); }
 $('today').addEventListener('click', () => { if (busy) return; month = new Date(today.getFullYear(), today.getMonth(), 1, 12); selected = null; loadMonth({ force: true }); });
-$('new-event').addEventListener('click', () => {
+function openCreateForm() {
   if (!selected || !loaded) return;
-  $('create-date').textContent = fullFormat.format(parseDate(selected)); $('create-form').hidden = false; $('new-event').hidden = true; $('event-name').value = ''; $('event-distance').value = ''; $('event-name').focus();
-});
+  $('create-date').textContent = fullFormat.format(parseDate(selected)); $('create-form').hidden = false; $('new-event').hidden = true; $('event-name').value = ''; $('event-distance').value = '';
+  if (currentView === 'list') { $('day-content').hidden = true; $('day-count').hidden = true; }
+  $('event-name').focus();
+}
+$('new-event').addEventListener('click', openCreateForm);
 $('cancel-create').addEventListener('click', renderDay);
 function createProgress(message = '') {
   $('create-progress-text').textContent = message;
@@ -228,7 +327,7 @@ function showSimilarEvents(draft, matches) {
 async function saveNewEvent(draft) {
   setBusy(true); createProgress('Creant l’esdeveniment…');
   try {
-    const result = await api('create', draft); upsert(result.event); renderCalendar(); renderDay(); openEvent(result.event.id);
+    const result = await api('create', draft); upsert(result.event); renderCalendar(); renderDay(); if (currentView === 'list') renderList(); openEvent(result.event.id);
     notify(result.existing ? 'Aquest esdeveniment i modalitat ja existeixen. Pots apuntar-t’hi aquí.' : 'Esdeveniment creat. Ja pots apuntar-t’hi.');
   } catch (error) { notify(error.message, true); }
   finally { createProgress(); setBusy(false); }
@@ -248,7 +347,7 @@ $('create-form').addEventListener('submit', async event => {
   try {
     // Always consult Google at submission time, even if this month is cached.
     const latest = await api('list', { month: draft.date.slice(0, 7) });
-    monthStore.replace(draft.date.slice(0, 7), latest.events); events = latest.events; renderCalendar();
+    monthStore.replace(draft.date.slice(0, 7), latest.events); events = latest.events; renderCalendar(); if (currentView === 'list') renderList();
     const matches = findSimilarEvents(latest.events, draft);
     if (matches.length) showSimilarEvents(draft, matches); else shouldCreate = true;
   } catch (error) { notify(error.message, true); }
@@ -262,12 +361,27 @@ $('join-form').addEventListener('submit', async event => {
   const name = $('person-name').value.trim(); if (!name) { $('person-name').setCustomValidity('Escriu el teu nom.'); $('person-name').reportValidity(); return; }
   setBusy(true); $('dialog-status').textContent = 'Desant el teu nom…';
   try {
-    const result = await api('join', { eventId: activeId, name }); upsert(result.event); renderCalendar(); renderDay(); renderEvent();
+    const result = await api('join', { eventId: activeId, name }); upsert(result.event); renderCalendar(); renderDay(); renderEvent(); if (currentView === 'list') renderList();
     try { localStorage.setItem('tri-relay-name', name); } catch { /* Joining works without local storage. */ }
     if (!result.existing) $('person-name').value = '';
     $('dialog-status').textContent = result.existing ? 'Aquest nom ja és a la llista. Si sou dues persones diferents, afegeix el cognom.' : 'Ja ets a la llista!';
   } catch (error) { $('dialog-status').textContent = error.message; } finally { setBusy(false); }
 });
+async function joinFromList(submit, id) {
+  submit.preventDefault(); if (busy) return;
+  const input = $(`list-name-${id}`), name = input.value.trim();
+  if (!name) { input.setCustomValidity('Escriu el teu nom.'); input.reportValidity(); return; }
+  setBusy(true); listMessages.set(id, 'Desant el teu nom…'); $(`list-message-${id}`).textContent = 'Desant el teu nom…';
+  try {
+    const result = await api('join', { eventId: id, name }); upsert(result.event);
+    if (!result.existing) listDrafts.delete(id);
+    listMessages.set(id, result.existing ? 'Aquest nom ja és a la llista. Afegeix el cognom si sou dues persones diferents.' : 'Ja ets a la llista!');
+    try { localStorage.setItem('tri-relay-name', name); } catch { /* Optional name memory. */ }
+    renderCalendar(); if ($('create-form').hidden) renderDay();
+    if ($('event-dialog').open) renderEvent();
+  } catch (error) { listMessages.set(id, error.message); }
+  finally { setBusy(false); renderList(); }
+}
 $('close-dialog').addEventListener('click', () => { if (!busy) $('event-dialog').close(); });
 $('event-dialog').addEventListener('cancel', event => { if (busy) event.preventDefault(); });
 function refreshOnReturn() {
@@ -275,7 +389,7 @@ function refreshOnReturn() {
   if (busy) { refreshPending = true; return; }
   if (Date.now() - lastResume < 1500) return;
   lastResume = Date.now();
-  loadMonth({ force: true, preserveEditor: true });
+  if (currentView === 'list') loadList({ force: true }); else loadMonth({ force: true, preserveEditor: true });
 }
 document.addEventListener('visibilitychange', refreshOnReturn);
 window.addEventListener('focus', refreshOnReturn);
