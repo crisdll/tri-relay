@@ -72,9 +72,9 @@ Mensaje sugerido:
 
 Por petición del equipo no hay autenticación: cualquier persona que tenga el enlace puede leer los eventos, ver nombres y añadir eventos o inscripciones. La hoja sigue siendo privada, pero la aplicación sirve esos datos públicamente. No se comprueba que un nombre pertenezca a quien lo escribe. No hay borrado desde la web; si hay que corregir una inscripción o un evento, la persona propietaria puede eliminar su fila en la hoja (al eliminar un evento, elimina también las filas de Personas con el mismo eventId). Se recomienda una copia periódica de la hoja.
 
-El nombre del último participante se recuerda opcionalmente en el navegador para no escribirlo de nuevo. No se usan analíticas. La lista se actualiza al cambiar de mes, volver a hoy o regresar a la aplicación; no hay actualización en tiempo real ni mensajes automáticos al chat.
+El navegador recuerda opcionalmente el último nombre y una copia temporal de los meses consultados. Los meses ya cargados aparecen de inmediato y los siguientes se preparan en segundo plano. Al abrir o volver a la aplicación (incluido el evento de activación de Telegram), se consulta Google para actualizar los datos sin borrar los puntos ni lo que se esté escribiendo. «Avui» fuerza una actualización del mes actual. Si falla la conexión, se conservan los datos guardados y se muestra el aviso. No se usan analíticas ni se envían mensajes automáticos al chat.
 
-Si la conexión se interrumpe durante un guardado, comprueba el evento antes de repetir. Las operaciones son idempotentes por fecha/nombre de evento y nombre de participante, y Apps Script usa un bloqueo para evitar duplicados en peticiones simultáneas.
+Si la conexión se interrumpe durante un guardado, comprueba el evento antes de repetir. Las operaciones son idempotentes por fecha/nombre/modalidad del evento y nombre de participante, y Apps Script usa un bloqueo para evitar duplicados en peticiones simultáneas.
 
 Al cambiar `Code.gs`, guarda y usa **Implementar → Gestionar implementaciones → Editar → Nueva versión** para conservar la misma URL. Publicar solo el código sin actualizar la implementación no actualiza el servicio. Para actualizar desde la versión sin distancia, ejecuta también **setup** una vez: añade la columna `distanceJson` y conserva los eventos e inscripciones anteriores.
 

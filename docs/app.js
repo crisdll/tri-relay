@@ -1,4 +1,5 @@
 import { dateKey, monthDays, normalizeName } from './calendar.js';
+import { MonthStore } from './month-store.js';
 const $ = id => document.getElementById(id);
 const config = window.TRI_CONFIG || {};
 const demo = new URLSearchParams(location.search).get('demo') === '1';
@@ -6,6 +7,7 @@ const today = new Date();
 const mobileLayout = window.matchMedia('(max-width: 740px)');
 let month = new Date(today.getFullYear(), today.getMonth(), 1, 12);
 let selected = null, events = [], activeId = null, busy = false, loaded = false, requestNumber = 0, toastTimer;
+let loadError = null, refreshPending = false, lastResume = 0;
 const monthFormat = new Intl.DateTimeFormat('ca-ES', { month: 'long', year: 'numeric' });
 const dayFormat = new Intl.DateTimeFormat('ca-ES', { day: 'numeric', month: 'long' });
 const fullFormat = new Intl.DateTimeFormat('ca-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -54,7 +56,7 @@ async function api(action, data = {}) {
   try {
     response = await fetch(config.apiUrl, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action, ...data }), credentials: 'omit', redirect: 'follow', signal: AbortSignal.timeout(30000)
+      body: JSON.stringify({ action, ...data }), credentials: 'omit', redirect: 'follow', cache: 'no-store', signal: AbortSignal.timeout(30000)
     });
   } catch { throw new Error('No hem pogut connectar. Revisa la connexió i prem Actualitza. Si estaves desant, comprova primer si el canvi ja apareix.'); }
   if (!response.ok) throw new Error('El calendari no està disponible ara. Torna-ho a provar.');
@@ -63,6 +65,13 @@ async function api(action, data = {}) {
   if (!result.ok) throw new Error(result.error || 'No hem pogut desar el canvi. Torna-ho a provar.');
   return result;
 }
+let calendarStorage = null;
+try { if (!demo) calendarStorage = window.localStorage; } catch { /* Persistent storage may be disabled. */ }
+const monthStore = new MonthStore({
+  fetchMonth: async key => (await api('list', { month: key })).events,
+  storage: calendarStorage,
+  storageKey: `tri-relay-months-v1:${config.apiUrl || 'unconfigured'}`
+});
 function renderCalendar() {
   $('month-label').textContent = monthFormat.format(month);
   $('calendar').replaceChildren();
@@ -85,7 +94,11 @@ function renderDay() {
   const content = $('day-content'); content.replaceChildren();
   if (!selected) { content.append(empty('', 'Toca una data per veure o crear esdeveniments.')); return; }
   if (!demo && !config.apiUrl) { content.append(empty('Calendari pendent de connectar', 'Falta connectar el full. Pots provar la demo amb l’enllaç de dalt.')); return; }
-  if (!loaded) { content.append(empty('Carregant…', 'Carregant els esdeveniments del dia.')); return; }
+  if (!loaded) {
+    content.append(empty(loadError ? 'No hem pogut carregar els esdeveniments.' : 'Carregant…', loadError ? 'Comprova la connexió i torna-ho a provar.' : 'Carregant els esdeveniments del dia.'));
+    if (loadError) { const retry = element('button', 'button secondary full-width', 'Actualitza'); retry.addEventListener('click', () => loadMonth({ force: true })); content.append(retry); }
+    return;
+  }
   const plans = events.filter(event => event.date === selected);
   $('day-count').textContent = plans.length; $('day-count').hidden = false; $('new-event').hidden = false;
   if (!plans.length) content.append(empty('Cap esdeveniment', 'Pots crear-ne un per a aquest dia.'));
@@ -102,19 +115,35 @@ function renderDay() {
 function setBusy(value) {
   busy = value;
   document.querySelectorAll('#create-form button, #join-form button, #new-event').forEach(button => { button.disabled = value; });
+  if (!value && refreshPending) { refreshPending = false; refreshOnReturn(); }
 }
-async function loadMonth() {
+function drawMonth(preserveEditor) {
+  renderCalendar();
+  if (!preserveEditor || $('create-form').hidden) renderDay();
+  if ($('event-dialog').open) renderEvent();
+}
+function warmNeighbors() {
+  monthStore.prefetch([1, 2, -1].map(offset => dateKey(new Date(month.getFullYear(), month.getMonth() + offset, 1, 12)).slice(0, 7)));
+}
+async function loadMonth({ force = false, preserveEditor = false } = {}) {
   const request = ++requestNumber;
-  loaded = false; events = []; renderCalendar(); renderDay();
+  const key = dateKey(month).slice(0, 7);
+  const cached = monthStore.peek(key);
+  loaded = Boolean(cached); events = cached?.events || []; loadError = null;
+  drawMonth(preserveEditor);
+  if (!force && monthStore.isFresh(key)) { $('sync-status').textContent = ''; warmNeighbors(); return; }
+  $('sync-status').textContent = loaded ? 'Actualitzant…' : 'Carregant…';
+  const reading = monthStore.refresh(key, { priority: true });
+  warmNeighbors();
   try {
-    const result = await api('list', { month: dateKey(month).slice(0, 7) });
+    const result = await reading;
     if (request !== requestNumber) return;
-    events = result.events; loaded = true; renderCalendar(); renderDay();
+    events = result.events; loaded = true; $('sync-status').textContent = ''; drawMonth(true);
   } catch (error) {
     if (request !== requestNumber) return;
+    loadError = error; $('sync-status').textContent = 'Sense connexió';
     notify(error.message, true);
-    $('day-content').replaceChildren(empty('No hem pogut carregar els esdeveniments.', 'Comprova la connexió i torna-ho a provar.'));
-    const retry = element('button', 'button secondary full-width', 'Actualitza'); retry.addEventListener('click', loadMonth); $('day-content').append(retry);
+    drawMonth(true);
   }
 }
 function selectDay(key, outside) {
@@ -156,11 +185,11 @@ function renderEvent() {
     item.append(avatar, element('span', '', person.name)); $('participants').append(item);
   }
 }
-function upsert(event) { const index = events.findIndex(item => item.id === event.id); if (index < 0) events.push(event); else events[index] = event; }
+function upsert(event) { monthStore.upsert(event); events = monthStore.peek(dateKey(month).slice(0, 7))?.events || []; }
 $('previous').addEventListener('click', () => changeMonth(-1));
 $('next').addEventListener('click', () => changeMonth(1));
 function changeMonth(direction) { if (busy) return; month = new Date(month.getFullYear(), month.getMonth() + direction, 1, 12); selected = null; loadMonth(); }
-$('today').addEventListener('click', () => { if (busy) return; month = new Date(today.getFullYear(), today.getMonth(), 1, 12); selected = null; loadMonth(); });
+$('today').addEventListener('click', () => { if (busy) return; month = new Date(today.getFullYear(), today.getMonth(), 1, 12); selected = null; loadMonth({ force: true }); });
 $('new-event').addEventListener('click', () => {
   if (!selected || !loaded) return;
   $('create-date').textContent = fullFormat.format(parseDate(selected)); $('create-form').hidden = false; $('new-event').hidden = true; $('event-name').value = ''; $('event-distance').value = ''; $('event-name').focus();
@@ -188,11 +217,25 @@ $('join-form').addEventListener('submit', async event => {
 });
 $('close-dialog').addEventListener('click', () => { if (!busy) $('event-dialog').close(); });
 $('event-dialog').addEventListener('cancel', event => { if (busy) event.preventDefault(); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && loaded && !busy && !$('event-dialog').open && $('create-form').hidden) loadMonth(); });
+function refreshOnReturn() {
+  if (document.visibilityState === 'hidden' || (!demo && !config.apiUrl)) return;
+  if (busy) { refreshPending = true; return; }
+  if (Date.now() - lastResume < 1500) return;
+  lastResume = Date.now();
+  loadMonth({ force: true, preserveEditor: true });
+}
+document.addEventListener('visibilitychange', refreshOnReturn);
+window.addEventListener('focus', refreshOnReturn);
+window.addEventListener('online', refreshOnReturn);
+window.addEventListener('pageshow', event => { if (event.persisted) refreshOnReturn(); });
 if (demo) { $('notice').textContent = 'DEMO · Dades de prova només en aquest navegador. No es comparteixen amb l’equip.'; $('notice').hidden = false; }
 else if (!config.apiUrl) {
   $('notice').append(document.createTextNode('El calendari encara no està connectat. ')); const link = element('a', '', 'Prova la demo ↗'); link.href = '?demo=1'; $('notice').append(link); $('notice').hidden = false;
 }
-try { const telegram = window.Telegram?.WebApp; telegram?.ready(); telegram?.expand(); } catch { /* Also works in an ordinary browser. */ }
+try {
+  const telegram = window.Telegram?.WebApp;
+  telegram?.ready(); telegram?.expand();
+  if (telegram?.isVersionAtLeast?.('8.0')) telegram.onEvent('activated', refreshOnReturn);
+} catch { /* Also works in an ordinary browser. */ }
 renderCalendar(); renderDay();
-if (demo || config.apiUrl) loadMonth();
+if (demo || config.apiUrl) loadMonth({ force: true });

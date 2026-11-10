@@ -26,4 +26,5 @@ body:has(dialog[open]){overflow:hidden}
 .event-title-line .event-tag{flex-shrink:0;max-width:100%;overflow-wrap:anywhere}
 .event-card-top .event-title-line{flex:1}
 @media(max-width:740px){.event-title-line h2{font-size:20px}.event-title-line{column-gap:8px}#event-distance-label{font-size:11px}}
+.sync-status{color:var(--accent-text);font-weight:500;letter-spacing:0;margin-left:6px}
 @media(max-width:740px){.header-sports{font-size:8px;letter-spacing:1px}.brand{font-size:17px;gap:7px}.brand-mark{width:32px;height:32px}}
