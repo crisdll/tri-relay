@@ -7,9 +7,9 @@
   <meta name="description" content="Calendari de triatló. Tria un dia i apunta-t’hi.">
   <title>Tri Relay · Calendari de triatló</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=11">
   <script src="config.js?v=9" defer></script>
-  <script src="app.js?v=10" type="module"></script>
+  <script src="app.js?v=11" type="module"></script>
 </head>
 <body>
   <main class="shell">
@@ -23,9 +23,9 @@
     <aside id="notice" class="notice" hidden></aside>
     <div class="workspace">
       <section class="calendar-card" aria-label="Calendari d’esdeveniments">
-        <div class="calendar-heading"><div><p class="eyebrow">CALENDARI <span id="sync-status" class="sync-status" role="status" aria-live="polite"></span></p><h2 id="month-label"></h2></div><div class="month-controls"><button id="previous" class="icon-button" aria-label="Mes anterior">‹</button><button id="next" class="icon-button" aria-label="Mes següent">›</button></div></div>
+        <div class="calendar-heading"><div><p class="eyebrow">CALENDARI <span id="sync-status" class="sync-status" role="status" aria-live="polite"><i id="sync-spinner" class="loading-spinner small" aria-hidden="true"></i><span id="sync-label">Carregant…</span></span></p><h2 id="month-label"></h2></div><div class="month-controls"><button id="previous" class="icon-button" aria-label="Mes anterior">‹</button><button id="next" class="icon-button" aria-label="Mes següent">›</button></div></div>
         <div class="weekdays" aria-hidden="true"><span>dl.</span><span>dt.</span><span>dc.</span><span>dj.</span><span>dv.</span><span>ds.</span><span>dg.</span></div>
-        <div id="calendar" class="calendar-grid" role="group" aria-labelledby="month-label"></div>
+        <div class="calendar-body"><div id="calendar" class="calendar-grid" role="group" aria-labelledby="month-label" aria-busy="true"></div><div id="calendar-loading" class="calendar-loading" aria-hidden="true"><span class="loading-spinner"></span><span>Carregant…</span></div></div>
         <div class="calendar-footer"><span><i class="dot"></i> Hi ha esdeveniments</span><button id="today" class="text-button">Avui ↗</button></div>
       </section>
       <div id="day-panel-home">

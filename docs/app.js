@@ -96,6 +96,7 @@ function renderDay() {
   if (!demo && !config.apiUrl) { content.append(empty('Calendari pendent de connectar', 'Falta connectar el full. Pots provar la demo amb l’enllaç de dalt.')); return; }
   if (!loaded) {
     content.append(empty(loadError ? 'No hem pogut carregar els esdeveniments.' : 'Carregant…', loadError ? 'Comprova la connexió i torna-ho a provar.' : 'Carregant els esdeveniments del dia.'));
+    if (!loadError) { const spinner = element('span', 'loading-spinner'); spinner.setAttribute('aria-hidden', 'true'); content.firstElementChild.querySelector('.empty-icon').replaceChildren(spinner); }
     if (loadError) { const retry = element('button', 'button secondary full-width', 'Actualitza'); retry.addEventListener('click', () => loadMonth({ force: true })); content.append(retry); }
     return;
   }
@@ -125,23 +126,30 @@ function drawMonth(preserveEditor) {
 function warmNeighbors() {
   monthStore.prefetch([1, 2, -1].map(offset => dateKey(new Date(month.getFullYear(), month.getMonth() + offset, 1, 12)).slice(0, 7)));
 }
+function setSyncState(syncing, offline = false) {
+  $('sync-label').textContent = syncing ? (loaded ? 'Actualitzant…' : 'Carregant…') : (offline ? 'Sense connexió' : '');
+  $('sync-status').hidden = !syncing && !offline;
+  $('sync-spinner').hidden = !syncing;
+  $('calendar-loading').hidden = !syncing || loaded;
+  $('calendar').setAttribute('aria-busy', String(syncing && !loaded));
+}
 async function loadMonth({ force = false, preserveEditor = false } = {}) {
   const request = ++requestNumber;
   const key = dateKey(month).slice(0, 7);
   const cached = monthStore.peek(key);
   loaded = Boolean(cached); events = cached?.events || []; loadError = null;
   drawMonth(preserveEditor);
-  if (!force && monthStore.isFresh(key)) { $('sync-status').textContent = ''; warmNeighbors(); return; }
-  $('sync-status').textContent = loaded ? 'Actualitzant…' : 'Carregant…';
+  if (!force && monthStore.isFresh(key)) { setSyncState(false); warmNeighbors(); return; }
+  setSyncState(true);
   const reading = monthStore.refresh(key, { priority: true });
   warmNeighbors();
   try {
     const result = await reading;
     if (request !== requestNumber) return;
-    events = result.events; loaded = true; $('sync-status').textContent = ''; drawMonth(true);
+    events = result.events; loaded = true; setSyncState(false); drawMonth(true);
   } catch (error) {
     if (request !== requestNumber) return;
-    loadError = error; $('sync-status').textContent = 'Sense connexió';
+    loadError = error; setSyncState(false, true);
     notify(error.message, true);
     drawMonth(true);
   }
@@ -238,4 +246,4 @@ try {
   if (telegram?.isVersionAtLeast?.('8.0')) telegram.onEvent('activated', refreshOnReturn);
 } catch { /* Also works in an ordinary browser. */ }
 renderCalendar(); renderDay();
-if (demo || config.apiUrl) loadMonth({ force: true });
+if (demo || config.apiUrl) loadMonth({ force: true }); else setSyncState(false);

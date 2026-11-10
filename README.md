@@ -74,6 +74,8 @@ Por petición del equipo no hay autenticación: cualquier persona que tenga el e
 
 El navegador recuerda opcionalmente el último nombre y una copia temporal de los meses consultados. Los meses ya cargados aparecen de inmediato y los siguientes se preparan en segundo plano. Al abrir o volver a la aplicación (incluido el evento de activación de Telegram), se consulta Google para actualizar los datos sin borrar los puntos ni lo que se esté escribiendo. «Avui» fuerza una actualización del mes actual. Si falla la conexión, se conservan los datos guardados y se muestra el aviso. No se usan analíticas ni se envían mensajes automáticos al chat.
 
+Mientras un mes todavía no tiene datos, el calendario muestra un indicador giratorio con «Carregant…». Si ya hay datos guardados, se conservan los puntos y se muestra solo el indicador pequeño «Actualitzant…». La animación respeta la preferencia de movimiento reducido del dispositivo.
+
 Si la conexión se interrumpe durante un guardado, comprueba el evento antes de repetir. Las operaciones son idempotentes por fecha/nombre/modalidad del evento y nombre de participante, y Apps Script usa un bloqueo para evitar duplicados en peticiones simultáneas.
 
 Al cambiar `Code.gs`, guarda y usa **Implementar → Gestionar implementaciones → Editar → Nueva versión** para conservar la misma URL. Publicar solo el código sin actualizar la implementación no actualiza el servicio. Para actualizar desde la versión sin distancia, ejecuta también **setup** una vez: añade la columna `distanceJson` y conserva los eventos e inscripciones anteriores.
