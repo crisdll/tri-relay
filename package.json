@@ -1,0 +1,9 @@
+{
+  "name": "tri-relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "start": "python -m http.server 8080 --bind 127.0.0.1 --directory docs"
+  }
+}

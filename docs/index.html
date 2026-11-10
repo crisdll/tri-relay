@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f5f5">
+  <meta name="description" content="Calendari de triatló. Tria un dia i apunta-t’hi.">
+  <title>Tri Relay · Calendari de triatló</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="styles.css?v=7">
+  <script src="config.js?v=9" defer></script>
+  <script src="app.js?v=8" type="module"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Tri Relay, inici">TRI RELAY<span class="brand-dot">●</span></a>
+      <p class="header-sports">RUN. SWIM. BIKE.</p>
+    </header>
+    <section class="intro">
+      <h1>On repartirem<br><span>tonyina</span></h1>
+    </section>
+    <aside id="notice" class="notice" hidden></aside>
+    <div class="workspace">
+      <section class="calendar-card" aria-label="Calendari d’esdeveniments">
+        <div class="calendar-heading"><div><p class="eyebrow">CALENDARI</p><h2 id="month-label"></h2></div><div class="month-controls"><button id="previous" class="icon-button" aria-label="Mes anterior">‹</button><button id="next" class="icon-button" aria-label="Mes següent">›</button></div></div>
+        <div class="weekdays" aria-hidden="true"><span>dl.</span><span>dt.</span><span>dc.</span><span>dj.</span><span>dv.</span><span>ds.</span><span>dg.</span></div>
+        <div id="calendar" class="calendar-grid" role="group" aria-labelledby="month-label"></div>
+        <div class="calendar-footer"><span><i class="dot"></i> Hi ha esdeveniments</span><button id="today" class="text-button">Avui ↗</button></div>
+      </section>
+      <div id="day-panel-home">
+      <section id="day-panel" class="day-panel" aria-labelledby="day-label">
+        <button id="close-day" class="text-button close-day" type="button">← Torna al calendari</button>
+        <div class="day-heading"><div><p class="eyebrow">ESDEVENIMENTS</p><h2 id="day-label">Tria un dia</h2></div><span id="day-count" class="count" hidden></span></div>
+        <div id="day-content"><div class="empty-state"><span class="empty-icon" aria-hidden="true">↖</span><p>Toca una data per veure o crear esdeveniments.</p></div></div>
+        <button id="new-event" class="button secondary new-event" hidden>＋ Crea un esdeveniment</button>
+        <form id="create-form" class="inline-form" hidden>
+          <h3>Nou esdeveniment</h3><p id="create-date" class="muted"></p>
+          <label for="event-name">Nom de l’esdeveniment</label><input id="event-name" maxlength="100" placeholder="P. ex. Triatló de la costa" required autocomplete="off">
+          <label for="event-distance">Distància / modalitat <span class="optional">(opcional)</span></label><input id="event-distance" maxlength="60" placeholder="P. ex. Olímpica, Half, 10 km…" autocomplete="off">
+          <div class="form-actions"><button type="button" id="cancel-create" class="button quiet">Cancel·la</button><button class="button primary" type="submit">Crea l’esdeveniment ↗</button></div>
+        </form>
+      </section>
+      </div>
+    </div>
+  </main>
+  <dialog id="day-dialog" class="day-dialog" aria-labelledby="day-label"><div id="day-dialog-slot"></div></dialog>
+  <dialog id="event-dialog" aria-labelledby="event-title">
+    <div class="dialog-heading"><p id="event-date" class="eyebrow"></p><button id="close-dialog" class="icon-button" aria-label="Tanca l’esdeveniment">×</button></div>
+    <div class="event-title-line"><h2 id="event-title"></h2><span id="event-distance-label" class="event-tag" hidden></span></div><p id="participant-count" class="muted"></p><ul id="participants" class="participants"></ul>
+    <form id="join-form" class="join-form"><h3>Apunta-t’hi</h3><label for="person-name">El teu nom</label><input id="person-name" maxlength="60" autocomplete="name" placeholder="Escriu el teu nom" required><button type="submit" class="button primary full-width">M’hi apunto ↗</button></form>
+    <p id="dialog-status" role="status" aria-live="polite"></p>
+  </dialog>
+  <div id="status" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
