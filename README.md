@@ -4,9 +4,9 @@ Calendario sencillo para el equipo de triatlón. Sin cuentas para los participan
 
 ## Qué hace
 
-- Dos pestañas: **Calendari** y **Llista**, conectadas a los mismos datos. La lista muestra doce meses por defecto, con controles para ir a los doce anteriores o siguientes, y agrupa las modalidades y sus participantes debajo del nombre y la fecha del evento.
+- Dos pestañas: **Calendari** y **Llista**, conectadas a una única consulta de todos los eventos desde hoy, sin límite de meses. La lista está ordenada desde los más próximos hasta los más lejanos, agrupa modalidades y participantes, y no muestra eventos pasados. El botón + permanece fijo abajo a la derecha para crear desde cualquier punto de la lista.
 - En la lista se puede escribir el nombre directamente en la modalidad correspondiente. Para crear desde la lista, «Nou esdeveniment» pide primero la fecha y después abre el formulario de nombre y modalidad, conservando la comprobación de posibles duplicados.
-- Calendario mensual de lunes a domingo con bolitas en las fechas con eventos.
+- Calendario mensual de lunes a domingo con bolitas en las fechas con eventos. Cambiar de mes no consulta Google. La flecha de retroceso y los días pasados quedan desactivados al llegar al mes actual.
 - En móvil, tocar un día abre directamente una ventana con sus eventos y un botón para volver al calendario; no hay que buscar los planes debajo de la página.
 - Para crear un evento desde el calendario hay que seleccionar antes su día. Desde la lista, el primer paso es elegir la fecha.
 - Al seleccionar un día aparecen sus eventos. Se puede abrir uno para ver la lista y apuntarse, o crear otro en esa fecha.
@@ -75,9 +75,9 @@ Mensaje sugerido:
 
 Por petición del equipo no hay autenticación: cualquier persona que tenga el enlace puede leer los eventos, ver nombres y añadir eventos o inscripciones. La hoja sigue siendo privada, pero la aplicación sirve esos datos públicamente. No se comprueba que un nombre pertenezca a quien lo escribe. No hay borrado desde la web; si hay que corregir una inscripción o un evento, la persona propietaria puede eliminar su fila en la hoja (al eliminar un evento, elimina también las filas de Personas con el mismo eventId). Se recomienda una copia periódica de la hoja.
 
-El navegador recuerda opcionalmente el último nombre y una copia temporal de los meses consultados. Los meses ya cargados aparecen de inmediato y los siguientes se preparan en segundo plano. Al abrir o volver a la aplicación (incluido el evento de activación de Telegram), se consulta Google para actualizar los datos sin borrar los puntos ni lo que se esté escribiendo. «Avui» fuerza una actualización del mes actual. Si falla la conexión, se conservan los datos guardados y se muestra el aviso. No se usan analíticas ni se envían mensajes automáticos al chat.
+El navegador recuerda opcionalmente el último nombre y una copia temporal de todos los eventos futuros. Al abrir o volver a la aplicación (incluido el evento de activación de Telegram), una consulta a Google actualiza las dos vistas sin borrar los puntos ni lo que se esté escribiendo. Cambiar de mes, cambiar de pestaña o pulsar «Avui» usa esos mismos datos sin consultar de nuevo. Antes de crear se hace una comprobación fresca para detectar duplicados. Si falla la conexión, se conservan los datos guardados y se muestra el aviso. No hay consultas periódicas ni precarga de meses; no se usan analíticas ni se envían mensajes automáticos al chat.
 
-Mientras un mes todavía no tiene datos, el calendario muestra un indicador giratorio con «Carregant…». Si ya hay datos guardados, se conservan los puntos y se muestra solo el indicador pequeño «Actualitzant…». La animación respeta la preferencia de movimiento reducido del dispositivo.
+Mientras llega la consulta inicial, el calendario muestra un indicador giratorio con «Carregant…». Si ya hay datos guardados, se conservan los puntos y se muestra solo el indicador pequeño «Actualitzant…». La animación respeta la preferencia de movimiento reducido del dispositivo.
 
 Si la conexión se interrumpe durante un guardado, comprueba el evento antes de repetir. Las operaciones son idempotentes por fecha/nombre/modalidad del evento y nombre de participante, y Apps Script usa un bloqueo para evitar duplicados en peticiones simultáneas.
 

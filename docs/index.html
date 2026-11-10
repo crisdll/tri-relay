@@ -7,9 +7,9 @@
   <meta name="description" content="Calendari de triatló. Tria un dia i apunta-t’hi.">
   <title>Tri Relay · Calendari de triatló</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="styles.css?v=14">
+  <link rel="stylesheet" href="styles.css?v=15">
   <script src="config.js?v=9" defer></script>
-  <script src="app.js?v=14" type="module"></script>
+  <script src="app.js?v=15" type="module"></script>
 </head>
 <body>
   <main class="shell">
@@ -46,10 +46,11 @@
       </div>
     </div>
     <section id="list-view" class="list-view" role="tabpanel" aria-labelledby="list-tab" hidden>
-      <div class="list-toolbar"><div><h2>Esdeveniments</h2><p id="list-period" class="muted"></p></div><button id="list-new-event" class="button primary" type="button">＋ Nou esdeveniment</button></div>
-      <div class="list-controls"><div class="month-controls"><button id="list-previous" class="icon-button" aria-label="Dotze mesos anteriors">‹</button><button id="list-next" class="icon-button" aria-label="Dotze mesos següents">›</button><button id="list-today" class="text-button">Avui ↗</button></div><span id="list-loading" class="form-progress" role="status" aria-live="polite" hidden><i class="loading-spinner small" aria-hidden="true"></i><span>Carregant la llista…</span></span></div>
+      <div class="list-toolbar"><h2>Esdeveniments</h2></div>
+      <span id="list-loading" class="form-progress" role="status" aria-live="polite" hidden><i class="loading-spinner small" aria-hidden="true"></i><span id="list-loading-text">Carregant la llista…</span></span>
       <div id="list-error" class="notice" hidden><span>No hem pogut carregar tota la llista. </span><button id="list-retry" class="text-button" type="button">Torna-ho a provar</button></div>
       <div id="event-list"></div>
+      <button id="list-new-event" class="floating-add" type="button" aria-label="Nou esdeveniment" title="Nou esdeveniment">＋</button>
     </section>
   </main>
   <dialog id="date-dialog" aria-labelledby="date-dialog-title"><h2 id="date-dialog-title">Quin dia és?</h2><form id="date-form"><label for="list-event-date">Data de l’esdeveniment</label><input id="list-event-date" type="date" min="2000-01-01" max="2100-12-31" required><div class="form-actions"><button id="cancel-date" class="button quiet" type="button">Cancel·la</button><button class="button primary" type="submit">Continua ↗</button></div></form></dialog>

@@ -62,4 +62,10 @@ body:has(dialog[open]){overflow:hidden}
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
 .day-dialog .close-day{display:inline-flex;margin:0 0 20px;min-height:40px;align-items:center;padding:0 4px}
 @media(max-width:740px){.view-tabs{display:flex}.view-tabs button{flex:1}.list-toolbar{align-items:flex-start}.list-toolbar h2{font-size:20px}.list-toolbar .button{font-size:11px;padding:10px;min-height:40px}.list-event{padding:20px}.list-event h3{font-size:18px}.list-controls{align-items:flex-start}.list-controls .form-progress{max-width:130px;line-height:1.5}.list-join-form{gap:6px}.list-join-form .button{font-size:11px;padding:10px}.list-view{margin-bottom:24px}}
+.list-view{padding-bottom:100px}
+#list-loading{margin:0 0 18px}
+.floating-add{position:fixed;right:max(24px,env(safe-area-inset-right));bottom:max(24px,env(safe-area-inset-bottom),var(--tg-content-safe-area-inset-bottom,0px));z-index:20;display:grid;place-items:center;width:60px;height:60px;border:0;border-radius:50%;background:var(--accent);color:#fff;box-shadow:0 5px 24px #0005;font-size:36px;line-height:1;padding:0}
+.floating-add:hover{background:#b5222c}
+.day:disabled,.icon-button:disabled{cursor:default;opacity:.35}
+@media(max-width:740px){.floating-add{right:max(20px,env(safe-area-inset-right));bottom:max(20px,env(safe-area-inset-bottom),var(--tg-content-safe-area-inset-bottom,0px));width:56px;height:56px}}
 @media(max-width:740px){.header-sports{font-size:8px;letter-spacing:1px}.brand{font-size:17px;gap:7px}.brand-mark{width:32px;height:32px}}

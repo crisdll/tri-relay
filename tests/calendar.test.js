@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { monthDays, dateKey, normalizeName } from '../docs/calendar.js';
+import { monthDays, dateKey, normalizeName, isCurrentOrFutureMonth } from '../docs/calendar.js';
 
 test('calendario empieza en lunes y cubre los cambios de año', () => {
   const days = monthDays(2026, 10);
@@ -17,4 +17,12 @@ test('incluye 29 de febrero solo en años bisiestos', () => {
 test('las fechas usan el día local y los nombres ignoran espacios y mayúsculas', () => {
   assert.equal(dateKey(new Date(2026, 0, 1, 0)), '2026-01-01');
   assert.equal(normalizeName('  María   Pérez  '), 'maría pérez');
+});
+
+test('el calendari permet el mes actual i els futurs, però no els anteriors', () => {
+  const today = new Date(2026, 10, 10, 12);
+  assert.equal(isCurrentOrFutureMonth(new Date(2026, 10, 1), today), true);
+  assert.equal(isCurrentOrFutureMonth(new Date(2026, 9, 1), today), false);
+  assert.equal(isCurrentOrFutureMonth(new Date(2027, 0, 1), today), true);
+  assert.equal(isCurrentOrFutureMonth(new Date(2025, 11, 1), new Date(2026, 0, 1)), false);
 });

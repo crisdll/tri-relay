@@ -1,7 +1,7 @@
-import { dateKey, monthDays, normalizeName } from './calendar.js';
-import { MonthStore } from './month-store.js?v=12';
+import { dateKey, monthDays, normalizeName, isCurrentOrFutureMonth } from './calendar.js?v=15';
+import { EventStore } from './event-store.js?v=15';
 import { findSimilarEvents } from './event-matching.js';
-import { listMonthKeys, groupListEvents, validListDate } from './event-list.js';
+import { groupListEvents, validListDate, upcomingEvents } from './event-list.js?v=15';
 const $ = id => document.getElementById(id);
 const config = window.TRI_CONFIG || {};
 const demo = new URLSearchParams(location.search).get('demo') === '1';
@@ -11,12 +11,13 @@ let month = new Date(today.getFullYear(), today.getMonth(), 1, 12);
 let selected = null, events = [], activeId = null, busy = false, loaded = false, requestNumber = 0, toastTimer;
 let loadError = null, refreshPending = false, lastResume = 0;
 let pendingCreation = null;
-let currentView = 'calendar', listStart = new Date(today.getFullYear(), today.getMonth(), 1, 12);
-let listLoading = false, listGeneration = 0, listRangeLoading = '', listPromise = null;
+let currentView = 'calendar';
+let listLoading = false;
 const listDrafts = new Map(), listMessages = new Map(), listFailures = new Set();
 const monthFormat = new Intl.DateTimeFormat('ca-ES', { month: 'long', year: 'numeric' });
 const dayFormat = new Intl.DateTimeFormat('ca-ES', { day: 'numeric', month: 'long' });
 const fullFormat = new Intl.DateTimeFormat('ca-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const todayKey = () => dateKey(new Date());
 const parseDate = key => new Date(`${key}T12:00:00`);
 const element = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
 
@@ -43,7 +44,7 @@ function readDemo() {
 async function api(action, data = {}) {
   if (demo) {
     const all = readDemo();
-    if (action === 'list') return { events: all.filter(event => event.date.startsWith(data.month)) };
+    if (action === 'list') return { from: data.from, events: upcomingEvents(all, data.from) };
     if (action === 'create') {
       const distance = (data.distance || '').trim().replace(/\s+/g, ' ');
       const existing = all.find(event => event.date === data.date && normalizeName(event.name) === normalizeName(data.name) && normalizeName(event.distance || '') === normalizeName(distance));
@@ -73,18 +74,19 @@ async function api(action, data = {}) {
 }
 let calendarStorage = null;
 try { if (!demo) calendarStorage = window.localStorage; } catch { /* Persistent storage may be disabled. */ }
-const monthStore = new MonthStore({
-  fetchMonth: async key => (await api('list', { month: key })).events,
+const eventStore = new EventStore({
+  fetchEvents: async from => (await api('list', { from })).events,
   storage: calendarStorage,
-  storageKey: `tri-relay-months-v1:${config.apiUrl || 'unconfigured'}`
+  storageKey: `tri-relay-events-v1:${config.apiUrl || 'unconfigured'}`
 });
 function renderCalendar() {
   $('month-label').textContent = monthFormat.format(month);
+  $('previous').disabled = !isCurrentOrFutureMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1, 12));
   $('calendar').replaceChildren();
   for (const day of monthDays(month.getFullYear(), month.getMonth())) {
     const plans = events.filter(event => event.date === day.key);
     const button = element('button', `day${day.outside ? ' outside' : ''}${day.key === dateKey(today) ? ' is-today' : ''}${day.key === selected ? ' selected' : ''}`, day.day);
-    button.type = 'button'; button.setAttribute('aria-pressed', String(day.key === selected));
+    button.type = 'button'; button.disabled = day.key < todayKey(); button.setAttribute('aria-pressed', String(day.key === selected));
     button.setAttribute('aria-label', `${fullFormat.format(parseDate(day.key))}${day.outside || !loaded ? '' : `, ${plans.length} ${plans.length === 1 ? 'esdeveniment' : 'esdeveniments'}`}`);
     if (day.key === dateKey(today)) button.setAttribute('aria-current', 'date');
     if (plans.length) { const dots = element('span', 'day-dots'); dots.setAttribute('aria-hidden', 'true'); for (let i = 0; i < Math.min(plans.length, 3); i++) dots.append(element('i', 'dot')); button.append(dots); }
@@ -94,19 +96,18 @@ function renderCalendar() {
 function empty(title, copy) {
   const wrapper = element('div', 'empty-state'); wrapper.append(element('span', 'empty-icon', '↗')); if (title) wrapper.append(element('h3', '', title)); wrapper.append(element('p', '', copy)); return wrapper;
 }
-function listEvents() { return listMonthKeys(listStart).flatMap(key => monthStore.peek(key)?.events || []); }
+function listEvents() { return upcomingEvents(events, todayKey()); }
 function eventById(id) { return events.find(event => event.id === id) || listEvents().find(event => event.id === id); }
 function renderList() {
-  const keys = listMonthKeys(listStart);
-  $('list-period').textContent = `${monthFormat.format(parseDate(`${keys[0]}-01`))} — ${monthFormat.format(parseDate(`${keys.at(-1)}-01`))}`;
   $('list-loading').hidden = !listLoading;
+  $('list-loading-text').textContent = loaded ? 'Actualitzant…' : 'Carregant la llista…';
   $('list-error').hidden = listFailures.size === 0;
   const focus = document.activeElement;
   const focusedId = focus?.id?.startsWith('list-name-') ? focus.id : null;
   const selection = focusedId ? [focus.selectionStart, focus.selectionEnd] : null;
   const container = $('event-list'); container.replaceChildren();
   const groups = groupListEvents(listEvents());
-  if (!groups.length && !listLoading && !listFailures.size) container.append(empty('Cap esdeveniment', 'Pots afegir-ne un amb «Nou esdeveniment».'));
+  if (!groups.length && !listLoading && !listFailures.size) container.append(empty('Cap esdeveniment', 'Pots afegir-ne un amb el botó +.'));
   for (const group of groups) {
     const article = element('article', 'list-event');
     article.append(element('p', 'list-date', new Intl.DateTimeFormat('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(parseDate(group.date))), element('h3', '', group.name));
@@ -131,22 +132,6 @@ function renderList() {
   }
   if (focusedId && $(focusedId)) { $(focusedId).focus({ preventScroll: true }); if (selection) $(focusedId).setSelectionRange(...selection); }
 }
-async function loadList({ force = false } = {}) {
-  if (!demo && !config.apiUrl) { renderList(); return; }
-  const keys = listMonthKeys(listStart), range = keys.join(',');
-  if (listLoading && listRangeLoading === range) return listPromise;
-  const generation = ++listGeneration; listRangeLoading = range; listLoading = true; listFailures.clear(); renderList();
-  listPromise = Promise.allSettled(keys.map(async key => {
-    try { if (force || !monthStore.isFresh(key)) await monthStore.refresh(key); }
-    catch (error) { if (generation === listGeneration) listFailures.add(key); }
-    if (generation === listGeneration && currentView === 'list') renderList();
-  })).then(() => {
-    if (generation !== listGeneration) return;
-    listLoading = false;
-    if (currentView === 'list') renderList();
-  });
-  return listPromise;
-}
 function switchView(view) {
   if (busy) return;
   currentView = view;
@@ -155,7 +140,8 @@ function switchView(view) {
     $(`${value}-tab`).setAttribute('aria-selected', String(value === view));
     $(`${value}-tab`).tabIndex = value === view ? 0 : -1;
   }
-  if (view === 'list') loadList(); else loadMonth({ preserveEditor: true });
+  drawMonth(true);
+  if (!loaded && !eventStore.pending) loadEvents({ force: true, preserveEditor: true });
 }
 $('calendar-tab').addEventListener('click', () => switchView('calendar'));
 $('list-tab').addEventListener('click', () => switchView('list'));
@@ -164,21 +150,16 @@ for (const id of ['calendar-tab', 'list-tab']) $(id).addEventListener('keydown',
   event.preventDefault(); if (busy) return;
   const view = currentView === 'calendar' ? 'list' : 'calendar'; switchView(view); $(`${view}-tab`).focus();
 });
-function changeListRange(offset) { if (busy) return; listStart = new Date(listStart.getFullYear(), listStart.getMonth() + offset, 1, 12); loadList(); }
-$('list-previous').addEventListener('click', () => changeListRange(-12));
-$('list-next').addEventListener('click', () => changeListRange(12));
-$('list-today').addEventListener('click', () => { if (busy) return; listStart = new Date(today.getFullYear(), today.getMonth(), 1, 12); loadList({ force: true }); });
-$('list-retry').addEventListener('click', () => loadList({ force: true }));
-$('list-new-event').addEventListener('click', () => { if (busy) return; $('list-event-date').value = ''; $('date-dialog').showModal(); });
+$('list-retry').addEventListener('click', () => loadEvents({ force: true, preserveEditor: true }));
+$('list-new-event').addEventListener('click', () => { if (busy) return; $('list-event-date').value = ''; $('list-event-date').min = todayKey(); $('date-dialog').showModal(); });
 $('cancel-date').addEventListener('click', () => $('date-dialog').close());
 $('list-event-date').addEventListener('input', () => $('list-event-date').setCustomValidity(''));
 $('date-form').addEventListener('submit', async event => {
   event.preventDefault(); if (busy) return;
   const key = $('list-event-date').value;
-  if (!validListDate(key)) { $('list-event-date').setCustomValidity('Tria una data vàlida.'); $('list-event-date').reportValidity(); return; }
+  if (!validListDate(key) || key < todayKey()) { $('list-event-date').setCustomValidity('Tria una data vàlida.'); $('list-event-date').reportValidity(); return; }
   setBusy(true); selected = key; const date = parseDate(key); month = new Date(date.getFullYear(), date.getMonth(), 1, 12); $('date-dialog').close();
-  const reading = loadMonth();
-  if (!listMonthKeys(listStart).includes(key.slice(0, 7))) { listStart = new Date(month); loadList(); }
+  const reading = loaded ? Promise.resolve(drawMonth(false)) : loadEvents({ force: true });
   showDayPanel(true);
   await reading;
   setBusy(false); if (loaded) openCreateForm();
@@ -192,7 +173,7 @@ function renderDay() {
   if (!loaded) {
     content.append(empty(loadError ? 'No hem pogut carregar els esdeveniments.' : 'Carregant…', loadError ? 'Comprova la connexió i torna-ho a provar.' : 'Carregant els esdeveniments del dia.'));
     if (!loadError) { const spinner = element('span', 'loading-spinner'); spinner.setAttribute('aria-hidden', 'true'); content.firstElementChild.querySelector('.empty-icon').replaceChildren(spinner); }
-    if (loadError) { const retry = element('button', 'button secondary full-width', 'Actualitza'); retry.addEventListener('click', () => loadMonth({ force: true })); content.append(retry); }
+    if (loadError) { const retry = element('button', 'button secondary full-width', 'Actualitza'); retry.addEventListener('click', () => loadEvents({ force: true })); content.append(retry); }
     return;
   }
   const plans = events.filter(event => event.date === selected);
@@ -219,9 +200,6 @@ function drawMonth(preserveEditor) {
   if ($('event-dialog').open) renderEvent();
   if (currentView === 'list') renderList();
 }
-function warmNeighbors() {
-  monthStore.prefetch([1, 2, -1].map(offset => dateKey(new Date(month.getFullYear(), month.getMonth() + offset, 1, 12)).slice(0, 7)));
-}
 function setSyncState(syncing, offline = false) {
   $('sync-label').textContent = syncing ? (loaded ? 'Actualitzant…' : 'Carregant…') : (offline ? 'Sense connexió' : '');
   $('sync-status').hidden = !syncing && !offline;
@@ -229,31 +207,27 @@ function setSyncState(syncing, offline = false) {
   $('calendar-loading').hidden = !syncing || loaded;
   $('calendar').setAttribute('aria-busy', String(syncing && !loaded));
 }
-async function loadMonth({ force = false, preserveEditor = false } = {}) {
+async function loadEvents({ force = false, preserveEditor = false } = {}) {
   const request = ++requestNumber;
-  const key = dateKey(month).slice(0, 7);
-  const cached = monthStore.peek(key);
+  const from = todayKey(), cached = eventStore.peek(from);
   loaded = Boolean(cached); events = cached?.events || []; loadError = null;
-  drawMonth(preserveEditor);
-  if (!force && monthStore.isFresh(key)) { setSyncState(false); warmNeighbors(); return; }
+  listLoading = true; listFailures.clear(); drawMonth(preserveEditor);
+  if (!force && cached && Date.now() - cached.fetchedAt < 60000) { listLoading = false; setSyncState(false); drawMonth(true); return; }
   setSyncState(true);
-  const reading = monthStore.refresh(key, { priority: true });
-  warmNeighbors();
   try {
-    const result = await reading;
+    const result = await eventStore.refresh(from);
     if (request !== requestNumber) return;
-    events = result.events; loaded = true; setSyncState(false); drawMonth(true);
+    events = upcomingEvents(result.events, todayKey()); loaded = true; listLoading = false; setSyncState(false); drawMonth(true);
   } catch (error) {
     if (request !== requestNumber) return;
-    loadError = error; setSyncState(false, true);
-    notify(error.message, true);
-    drawMonth(true);
+    loadError = error; listLoading = false; listFailures.add('events'); setSyncState(false, true);
+    notify(error.message, true); drawMonth(true);
   }
 }
 function selectDay(key, outside) {
-  if (busy) return;
+  if (busy || key < todayKey()) return;
   selected = key;
-  if (outside) { month = new Date(parseDate(key).getFullYear(), parseDate(key).getMonth(), 1, 12); loadMonth(); }
+  if (outside) { month = new Date(parseDate(key).getFullYear(), parseDate(key).getMonth(), 1, 12); renderCalendar(); renderDay(); }
   else { renderCalendar(); renderDay(); }
   showDayPanel();
   window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
@@ -291,11 +265,11 @@ function renderEvent() {
     item.append(avatar, element('span', '', person.name)); $('participants').append(item);
   }
 }
-function upsert(event) { monthStore.upsert(event); events = monthStore.peek(dateKey(month).slice(0, 7))?.events || []; }
+function upsert(event) { eventStore.upsert(event, todayKey()); events = eventStore.peek(todayKey())?.events || []; }
 $('previous').addEventListener('click', () => changeMonth(-1));
 $('next').addEventListener('click', () => changeMonth(1));
-function changeMonth(direction) { if (busy) return; month = new Date(month.getFullYear(), month.getMonth() + direction, 1, 12); selected = null; loadMonth(); }
-$('today').addEventListener('click', () => { if (busy) return; month = new Date(today.getFullYear(), today.getMonth(), 1, 12); selected = null; loadMonth({ force: true }); });
+function changeMonth(direction) { if (busy) return; const next = new Date(month.getFullYear(), month.getMonth() + direction, 1, 12); if (!isCurrentOrFutureMonth(next)) return; month = next; selected = null; drawMonth(false); }
+$('today').addEventListener('click', () => { if (busy) return; month = new Date(new Date().getFullYear(), new Date().getMonth(), 1, 12); selected = null; drawMonth(false); });
 function openCreateForm() {
   if (!selected || !loaded) return;
   $('create-date').textContent = fullFormat.format(parseDate(selected)); $('create-form').hidden = false; $('new-event').hidden = true; $('event-name').value = ''; $('event-distance').value = '';
@@ -346,8 +320,8 @@ $('create-form').addEventListener('submit', async event => {
   let shouldCreate = false;
   try {
     // Always consult Google at submission time, even if this month is cached.
-    const latest = await api('list', { month: draft.date.slice(0, 7) });
-    monthStore.replace(draft.date.slice(0, 7), latest.events); events = latest.events; renderCalendar(); if (currentView === 'list') renderList();
+    const latest = await api('list', { from: todayKey() });
+    eventStore.replace(latest.events, todayKey()); events = eventStore.peek(todayKey()).events; renderCalendar(); if (currentView === 'list') renderList();
     const matches = findSimilarEvents(latest.events, draft);
     if (matches.length) showSimilarEvents(draft, matches); else shouldCreate = true;
   } catch (error) { notify(error.message, true); }
@@ -389,7 +363,7 @@ function refreshOnReturn() {
   if (busy) { refreshPending = true; return; }
   if (Date.now() - lastResume < 1500) return;
   lastResume = Date.now();
-  if (currentView === 'list') loadList({ force: true }); else loadMonth({ force: true, preserveEditor: true });
+  loadEvents({ force: true, preserveEditor: true });
 }
 document.addEventListener('visibilitychange', refreshOnReturn);
 window.addEventListener('focus', refreshOnReturn);
@@ -405,4 +379,4 @@ try {
   if (telegram?.isVersionAtLeast?.('8.0')) telegram.onEvent('activated', refreshOnReturn);
 } catch { /* Also works in an ordinary browser. */ }
 renderCalendar(); renderDay();
-if (demo || config.apiUrl) loadMonth({ force: true }); else setSyncState(false);
+if (demo || config.apiUrl) loadEvents({ force: true }); else setSyncState(false);

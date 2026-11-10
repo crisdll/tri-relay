@@ -105,3 +105,12 @@ test('actualitzar una fulla antiga conserva esdeveniments i inscripcions', () =>
   assert.equal(formula.event.distance, '=SUM(1,2)');
   assert.equal(sheets.get('Eventos').data[2][5][0], '"');
 });
+
+test('una sola consulta retorna tots els esdeveniments des d’avui, inclosos els de diversos anys després', () => {
+  const { call } = backend();
+  for (const date of ['2026-11-09', '2026-11-10', '2027-12-01', '2030-10-03']) call({ action: 'create', date, name: 'Cursa' });
+  const result = call({ action: 'list', from: '2026-11-10' });
+  assert.equal(result.ok, true); assert.equal(result.from, '2026-11-10');
+  assert.deepEqual(result.events.map(event => event.date), ['2026-11-10', '2027-12-01', '2030-10-03']);
+  assert.equal(call({ action: 'list', from: '2027-02-29' }).ok, false);
+});

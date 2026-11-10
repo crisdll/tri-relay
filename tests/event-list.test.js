@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { listMonthKeys, groupListEvents, validListDate } from '../docs/event-list.js';
+import { listMonthKeys, groupListEvents, validListDate, upcomingEvents } from '../docs/event-list.js';
 
 test('la llista cobreix dotze mesos i creua correctament el canvi d’any', () => {
   const keys = listMonthKeys(new Date(2026, 10, 1, 12));
@@ -28,4 +28,15 @@ test('una mateixa entrada rebuda dos cops només es mostra una vegada', () => {
 test('rebutja dates impossibles abans de passar al formulari de creació', () => {
   for (const date of ['', '2027-02-29', '2027-04-31', '1999-12-31', '2101-01-01', '2027-7-1']) assert.equal(validListDate(date), false, date);
   for (const date of ['2028-02-29', '2027-07-11', '2000-01-01', '2100-12-31']) assert.equal(validListDate(date), true, date);
+});
+
+test('els esdeveniments futurs inclouen avui, exclouen el passat i no tenen límit de mesos', () => {
+  const events = [
+    { id: 'far', date: '2030-10-03', name: 'Cursa futura' },
+    { id: 'past', date: '2026-11-09', name: 'Ahir' },
+    { id: 'today', date: '2026-11-10', name: 'Avui' },
+    { id: 'near', date: '2026-12-01', name: 'Proper mes' }
+  ];
+  assert.deepEqual(upcomingEvents(events, '2026-11-10').map(event => event.id), ['today', 'near', 'far']);
+  assert.equal(events[0].id, 'far');
 });

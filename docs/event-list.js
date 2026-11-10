@@ -4,6 +4,10 @@ export function listMonthKeys(start, count = 12) {
   return Array.from({ length: count }, (_, index) => dateKey(new Date(start.getFullYear(), start.getMonth() + index, 1, 12)).slice(0, 7));
 }
 
+export function upcomingEvents(events, from) {
+  return events.filter(event => event.date >= from).sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name, 'ca'));
+}
+
 export function groupListEvents(events) {
   const groups = new Map(), seen = new Set();
   for (const event of events) {

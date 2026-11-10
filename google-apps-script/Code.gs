@@ -111,6 +111,10 @@ function dispatch_(input) {
   const events = rows_(eventsSheet, EVENT_HEADERS.length);
   const people = rows_(peopleSheet, PERSON_HEADERS.length);
   if (input.action === 'list') {
+    if (input.from !== undefined) {
+      const from = validDate_(input.from);
+      return { from: from, events: events.filter(function (row) { return String(row[1]) >= from; }).map(function (row) { return eventView_(row, people); }) };
+    }
     if (typeof input.month !== 'string' || !/^\d{4}-\d{2}$/.test(input.month)) throw new CalendarError('Mes no vàlid.');
     validDate_(input.month + '-01');
     return { events: events.filter(function (row) { return String(row[1]).slice(0, 7) === input.month; }).map(function (row) { return eventView_(row, people); }) };

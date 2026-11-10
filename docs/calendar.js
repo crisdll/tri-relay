@@ -9,3 +9,6 @@ export function monthDays(year, month) {
   });
 }
 export function normalizeName(value) { return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es'); }
+export function isCurrentOrFutureMonth(date, today = new Date()) {
+  return date.getFullYear() * 12 + date.getMonth() >= today.getFullYear() * 12 + today.getMonth();
+}
